@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automatelinux.charge.data.Charge
 import com.automatelinux.charge.data.ChargeApi
+import com.automatelinux.charge.platform.rememberContactPicker
 import com.automatelinux.charge.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 
@@ -73,6 +75,12 @@ import kotlinx.coroutines.launch
 
 private const val CURRENCY = "₪"
 
+/** Words in a name, by the same rule the daemon applies before Grow sees it:
+ *  Grow fails the whole payment page on a one-word customerName, in any
+ *  language. Counted here only to WARN — the daemon stays the authority, and
+ *  its refusal is still what gets shown if one slips through. */
+private fun wordCount(s: String): Int = s.trim().split(" ", "\t").count { it.isNotBlank() }
+
 private fun money(v: Double): String =
     if (kotlin.math.abs(v - v.toLong()) < 0.005) v.toLong().toString()
     else ((v * 100).toLong() / 100.0).toString()
@@ -84,6 +92,13 @@ fun App(baseUrl: String, token: String) {
 
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    // Both fields are filled from a contact but neither is owned by it: an
+    // address book holds "אמא" and "יוסי אינסטלטור" as often as it holds a
+    // person's actual name, and it is the name on a real payment page.
+    val pickContact = rememberContactPicker { c ->
+        phone = c.phone.filter { it.isDigit() || it == '+' }
+        name = c.displayName
+    }
     var amount by remember { mutableStateOf("") }
     var what by remember { mutableStateOf("") }
 
@@ -181,22 +196,43 @@ fun App(baseUrl: String, token: String) {
                                 Modifier.padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
+                                // The rule is Grow's, not ours, and it fails the
+                                // whole payment page — so it is said before the
+                                // field is filled, and said louder the moment a
+                                // name arrives that will not pass. A contact
+                                // called "אמא" is exactly that case.
+                                val nameTooShort = name.isNotBlank() && wordCount(name) < 2
                                 Field(
                                     value = name,
                                     onChange = { name = it },
                                     label = "שם מלא",
-                                    // The rule is Grow's, not ours, and it fails
-                                    // the whole payment page — so it is said
-                                    // before the field is filled, not after.
-                                    supporting = "שם ושם משפחה — חברת הסליקה דורשת שניהם",
+                                    supporting = if (nameTooShort)
+                                        "\"$name\" הוא שם אחד — חברת הסליקה תדחה את זה. הוסף שם משפחה."
+                                    else "שם ושם משפחה — חברת הסליקה דורשת שניהם",
+                                    isWarning = nameTooShort,
                                     keyboard = KeyboardType.Text,
                                 )
                                 Field(
                                     value = phone,
                                     onChange = { phone = it },
                                     label = "טלפון",
-                                    supporting = "לשם יישלח הקישור בוואטסאפ",
+                                    supporting = if (pickContact != null)
+                                        "לשם יישלח הקישור בוואטסאפ — או בחר מאנשי הקשר"
+                                    else "לשם יישלח הקישור בוואטסאפ",
                                     keyboard = KeyboardType.Phone,
+                                    // Hidden rather than disabled where there is
+                                    // no picker: a button that cannot do anything
+                                    // is worse than no button.
+                                    trailing = pickContact?.let { pick ->
+                                        {
+                                            IconButton(onClick = pick) {
+                                                Icon(
+                                                    Icons.Filled.Contacts,
+                                                    contentDescription = "בחר מאנשי הקשר",
+                                                )
+                                            }
+                                        }
+                                    },
                                 )
                                 Field(
                                     value = amount,
@@ -332,13 +368,25 @@ private fun Field(
     label: String,
     keyboard: KeyboardType,
     supporting: String? = null,
+    isWarning: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
     imeAction: ImeAction = ImeAction.Next,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
         label = { Text(label) },
-        supportingText = supporting?.let { { Text(it, fontSize = 12.sp) } },
+        supportingText = supporting?.let {
+            {
+                Text(
+                    it,
+                    fontSize = 12.sp,
+                    color = if (isWarning) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        trailingIcon = trailing,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = imeAction),
         modifier = Modifier.fillMaxWidth(),

@@ -35,6 +35,14 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.multiplatform.settings)
         }
+
+        androidMain.dependencies {
+            // rememberLauncherForActivityResult, for the system contact picker.
+            // Android-only by nature: iOS has its own contact UI and will get
+            // its own actual, which is the whole reason the picker is an
+            // expect/actual rather than something commonMain tries to do.
+            implementation(libs.activity.compose)
+        }
     }
 }
 

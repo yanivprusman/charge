@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Themed-icon layer (Android 13+): the system replaces every colour here with
+  one taken from the wallpaper, so the icon has to survive as a single
+  silhouette. The ₪ is CUT OUT of the bubble (evenOdd) rather than drawn on top
+  of it, which is what keeps the sign readable once the contrast is gone.
+
+  Without this layer a themed launcher shrinks the full-colour icon into a grey
+  circle, and the app looks broken beside every app that shipped one.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#000000" android:fillType="evenOdd"
+        android:pathData="M41,27 h26 a11,11 0 0 1 11,11 v16 a11,11 0 0 1 -11,11 h-13 c-2.5,4.6 -8,8.2 -15,9.6 c4.2,-3.4 6.4,-6.4 6.6,-9.9 a11,11 0 0 1 -8.6,-10.7 v-16 a11,11 0 0 1 11,-11 z M42.46 57.00V35.00H51.33Q54.26 35.00 55.97 36.02Q57.68 37.03 58.44 38.85Q59.19 40.67 59.19 43.13V51.39H55.16V43.23Q55.16 40.48 54.05 39.39Q52.94 38.30 50.75 38.30H46.50V57.00ZM48.81 40.61H52.84V53.70H57.10Q59.28 53.70 60.39 52.59Q61.50 51.48 61.50 48.77V35.00H65.54V48.87Q65.54 51.30 64.75 53.13Q63.97 54.97 62.21 55.98Q60.46 57.00 57.53 57.00H48.81Z" />
+</vector>

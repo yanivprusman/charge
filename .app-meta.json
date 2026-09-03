@@ -1,0 +1,7 @@
+{
+  "description": "גבייה — charge a person for one thing: makes a Grow payment link (Bit + card) and sends it on WhatsApp from your own number",
+  "icon": "HandCoins",
+  "sharedLibs": [
+    "android-feedback-lib"
+  ]
+}

@@ -20,6 +20,11 @@ val envFile = rootProject.file(".env")
 val envProps = Properties()
 if (envFile.exists()) envFile.inputStream().use { envProps.load(it) }
 val apiBaseUrl = envProps.getProperty("API_BASE_URL", "http://10.7.0.1:3139/")
+// The backend refuses every unauthenticated call, so a build with no token is a
+// build that cannot do anything. Empty is left buildable on purpose — the app
+// says "no token in this build" instead of failing at `gradlew` time on a
+// machine that only wanted to compile it.
+val apiToken = envProps.getProperty("API_TOKEN", "")
 
 android {
     namespace = "com.automatelinux.charge"
@@ -32,6 +37,7 @@ android {
         versionCode = gitCommitCount
         versionName = "v${gitCommitCount} (${gitShortHash})"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "API_TOKEN", "\"$apiToken\"")
     }
 
     buildTypes {

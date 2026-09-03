@@ -19,3 +19,4 @@ local.properties
 # Bind-mounted from addnewfeature at create time
 feedback-lib/
 build-logic/
+.env

@@ -90,6 +90,11 @@ fun App(baseUrl: String, token: String) {
     var busy by remember { mutableStateOf(false) }
     var loadingList by remember { mutableStateOf(true) }
     var banner by remember { mutableStateOf<Banner?>(null) }
+    // A connection problem is a STATE, not an event: it must disappear by
+    // itself the moment the connection comes back. Keeping it in `banner`
+    // alongside one-off results left "check the VPN" on screen after a
+    // successful refresh had already proved otherwise.
+    var listError by remember { mutableStateOf("") }
     var charges by remember { mutableStateOf<List<Charge>>(emptyList()) }
     var outstanding by remember { mutableStateOf(0.0) }
 
@@ -99,8 +104,9 @@ fun App(baseUrl: String, token: String) {
         if (r.ok) {
             charges = r.charges
             outstanding = r.outstandingIls
+            listError = ""
         } else if (r.error.isNotEmpty()) {
-            banner = Banner(r.error, ok = false)
+            listError = r.error
         }
         loadingList = false
     }
@@ -151,8 +157,15 @@ fun App(baseUrl: String, token: String) {
                     }
 
                     banner?.let { b ->
+                        item { BannerCard(b) { banner = null } }
+                    }
+
+                    if (listError.isNotEmpty()) {
                         item {
-                            BannerCard(b) { banner = null }
+                            // No dismiss: it is not news to be acknowledged, it
+                            // is the current state of the connection, and the
+                            // next successful load removes it.
+                            BannerCard(Banner(listError, ok = false), onDismiss = null)
                         }
                     }
 
@@ -188,7 +201,7 @@ fun App(baseUrl: String, token: String) {
                                 Field(
                                     value = amount,
                                     onChange = { amount = it },
-                                    label = "סכום ב$CURRENCY",
+                                    label = "סכום בשקלים",
                                     keyboard = KeyboardType.Decimal,
                                 )
                                 Field(
@@ -283,7 +296,7 @@ fun App(baseUrl: String, token: String) {
 private data class Banner(val text: String, val ok: Boolean, val link: String = "")
 
 @Composable
-private fun BannerCard(b: Banner, onDismiss: () -> Unit) {
+private fun BannerCard(b: Banner, onDismiss: (() -> Unit)?) {
     val bg = if (b.ok) Color(0xFFE7F6EC) else Color(0xFFFDECEC)
     val fg = if (b.ok) Color(0xFF11603A) else Color(0xFF8A1C1C)
     Card(
@@ -303,8 +316,10 @@ private fun BannerCard(b: Banner, onDismiss: () -> Unit) {
                     fontWeight = FontWeight.Medium,
                 )
             }
-            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                Text("סגור", color = fg)
+            if (onDismiss != null) {
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                    Text("סגור", color = fg)
+                }
             }
         }
     }

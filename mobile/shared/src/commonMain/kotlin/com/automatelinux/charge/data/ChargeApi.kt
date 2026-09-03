@@ -32,7 +32,7 @@ class ChargeApi(baseUrl: String, private val token: String) {
     suspend fun list(): ChargesResponse {
         if (!configured) return ChargesResponse(error = NO_TOKEN)
         val r = httpRequest("GET", "$base/api/charges?status=all", token, null)
-        return runCatching { json.decodeFromString<ChargesResponse>(r.body) }
+        return runCatching { json.decodeFromString(ChargesResponse.serializer(), r.body) }
             .getOrElse { ChargesResponse(error = describe(r)) }
     }
 
@@ -44,10 +44,11 @@ class ChargeApi(baseUrl: String, private val token: String) {
     ): ChargeResponse {
         if (!configured) return ChargeResponse(error = NO_TOKEN)
         val body = json.encodeToString(
+            ChargeRequest.serializer(),
             ChargeRequest(to = phone, name = name, amount = amount, description = description),
         )
         val r = httpRequest("POST", "$base/api/charge", token, body)
-        return runCatching { json.decodeFromString<ChargeResponse>(r.body) }
+        return runCatching { json.decodeFromString(ChargeResponse.serializer(), r.body) }
             .getOrElse { ChargeResponse(error = describe(r)) }
     }
 

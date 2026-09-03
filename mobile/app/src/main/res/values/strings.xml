@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Charge</string>
+    <!-- The name on the home screen. Hebrew, like the app itself — it is what
+         he will be scanning the launcher for, and "Charge" is not the word he
+         thinks in. The dev flavour overrides this in src/dev/res (see there);
+         ${appNameSuffix} is NOT used, because a manifest placeholder appended
+         to a resource reference produces "@string/app_name Dev", which aapt
+         reads as one resource name and cannot find. -->
+    <string name="app_name">גבייה</string>
 </resources>

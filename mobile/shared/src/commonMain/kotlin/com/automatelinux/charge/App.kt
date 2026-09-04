@@ -81,23 +81,6 @@ private const val CURRENCY = "₪"
  *  its refusal is still what gets shown if one slips through. */
 private fun wordCount(s: String): Int = s.trim().split(" ", "\t").count { it.isNotBlank() }
 
-/**
- * The formal name inside an address-book label.
- *
- * A contact is filed to be FOUND — "ליאור עזימי מחסן עמק חפב" is one person
- * among four hundred, and the tail is a note to self about which job he is.
- * That note is private, and the name in this field is not: it goes on the
- * payment page and into the message, verbatim and identically, so the label
- * would hand the customer your own filing system. It did, once, on 2026-09-04.
- *
- * Two words, because that is exactly what the clearing company requires and
- * what a formal name is — given name and surname. Applied HERE, at the moment
- * of picking, and never later: the field then shows precisely what will be
- * sent, and a three-part name someone types deliberately is left alone.
- */
-private fun formalName(label: String): String =
-    label.trim().split(" ", "\t").filter { it.isNotBlank() }.take(2).joinToString(" ")
-
 private fun money(v: Double): String =
     if (kotlin.math.abs(v - v.toLong()) < 0.005) v.toLong().toString()
     else ((v * 100).toLong() / 100.0).toString()
@@ -109,14 +92,23 @@ fun App(baseUrl: String, token: String) {
 
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    // Filled from a contact, owned by neither: the label is trimmed to the
-    // formal name on the way in (see formalName), and both fields stay
-    // editable. What is on screen is what gets sent — the private half of a
-    // contact label never leaves the phone, and nothing is trimmed later
-    // behind the sender's back.
+    // The picker fills the NUMBER and nothing else.
+    //
+    // It used to fill the name too, from the contact's display name, and that
+    // is how "ליאור עזימי מחסן עמק חפב" reached a customer's WhatsApp and his
+    // payment page on 2026-09-04. The obvious repair — shorten the label to its
+    // first two words — was tried and removed: it guesses which words are the
+    // person and which are the filing note, and a wrong guess writes a wrong
+    // name onto a real payment page. "דוד בן שמעון" is a name; "דוד קלין
+    // ניקיון" is a name and a trade; nothing in the string says which.
+    //
+    // So the app does not guess. An address-book label is a private note about
+    // how to FIND someone, and it never becomes the name a payer is shown —
+    // because it never enters the field. The name is typed by the one person
+    // who knows it. An existing entry is left alone, so picking a contact to
+    // fetch a number cannot wipe a name already typed.
     val pickContact = rememberContactPicker { c ->
         phone = c.phone.filter { it.isDigit() || it == '+' }
-        name = formalName(c.displayName)
     }
     var amount by remember { mutableStateOf("") }
     var what by remember { mutableStateOf("") }

@@ -81,6 +81,23 @@ private const val CURRENCY = "₪"
  *  its refusal is still what gets shown if one slips through. */
 private fun wordCount(s: String): Int = s.trim().split(" ", "\t").count { it.isNotBlank() }
 
+/**
+ * The formal name inside an address-book label.
+ *
+ * A contact is filed to be FOUND — "ליאור עזימי מחסן עמק חפב" is one person
+ * among four hundred, and the tail is a note to self about which job he is.
+ * That note is private, and the name in this field is not: it goes on the
+ * payment page and into the message, verbatim and identically, so the label
+ * would hand the customer your own filing system. It did, once, on 2026-09-04.
+ *
+ * Two words, because that is exactly what the clearing company requires and
+ * what a formal name is — given name and surname. Applied HERE, at the moment
+ * of picking, and never later: the field then shows precisely what will be
+ * sent, and a three-part name someone types deliberately is left alone.
+ */
+private fun formalName(label: String): String =
+    label.trim().split(" ", "\t").filter { it.isNotBlank() }.take(2).joinToString(" ")
+
 private fun money(v: Double): String =
     if (kotlin.math.abs(v - v.toLong()) < 0.005) v.toLong().toString()
     else ((v * 100).toLong() / 100.0).toString()
@@ -92,12 +109,14 @@ fun App(baseUrl: String, token: String) {
 
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    // Both fields are filled from a contact but neither is owned by it: an
-    // address book holds "אמא" and "יוסי אינסטלטור" as often as it holds a
-    // person's actual name, and it is the name on a real payment page.
+    // Filled from a contact, owned by neither: the label is trimmed to the
+    // formal name on the way in (see formalName), and both fields stay
+    // editable. What is on screen is what gets sent — the private half of a
+    // contact label never leaves the phone, and nothing is trimmed later
+    // behind the sender's back.
     val pickContact = rememberContactPicker { c ->
         phone = c.phone.filter { it.isDigit() || it == '+' }
-        name = c.displayName
+        name = formalName(c.displayName)
     }
     var amount by remember { mutableStateOf("") }
     var what by remember { mutableStateOf("") }

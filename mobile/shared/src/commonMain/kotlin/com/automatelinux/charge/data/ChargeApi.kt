@@ -52,6 +52,24 @@ class ChargeApi(baseUrl: String, private val token: String) {
             .getOrElse { ChargeResponse(error = describe(r)) }
     }
 
+    /**
+     * Withdraw a charge.
+     *
+     * @param notify tell the payer, on WhatsApp, that the request is off. True
+     *   by default and for a reason: cancelling cannot take the Grow page down,
+     *   so an untold payer is holding a link that still charges his card.
+     */
+    suspend fun cancel(id: String, notify: Boolean): CancelResponse {
+        if (!configured) return CancelResponse(error = NO_TOKEN)
+        val body = json.encodeToString(
+            CancelRequest.serializer(),
+            CancelRequest(id = id, notify = notify),
+        )
+        val r = httpRequest("POST", "$base/api/charge/cancel", token, body)
+        return runCatching { json.decodeFromString(CancelResponse.serializer(), r.body) }
+            .getOrElse { CancelResponse(error = describe(r)) }
+    }
+
     /** What to show when the reply was not the JSON we expected — the status
      *  code alone is useless to someone holding a phone. */
     private fun describe(r: HttpResult): String = when (r.code) {
@@ -71,4 +89,10 @@ private data class ChargeRequest(
     val name: String,
     val amount: String,
     val description: String,
+)
+
+@kotlinx.serialization.Serializable
+private data class CancelRequest(
+    val id: String,
+    val notify: Boolean,
 )

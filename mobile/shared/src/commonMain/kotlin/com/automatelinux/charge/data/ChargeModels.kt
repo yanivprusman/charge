@@ -21,12 +21,20 @@ data class Charge(
     @SerialName("amountIls") val amountIls: Double = 0.0,
     val description: String = "",
     @SerialName("payUrl") val payUrl: String = "",
-    /** "pending" | "paid" */
+    /** "pending" | "paid" | "cancelled" */
     val status: String = "pending",
     val sent: Boolean = false,
     @SerialName("paidAmountIls") val paidAmountIls: Double = 0.0,
 ) {
     val isPaid: Boolean get() = status == "paid"
+
+    /** Withdrawn before it was paid. Not a failure and not a debt — it is a
+     *  request that was taken back, and it stops counting as money owed. */
+    val isCancelled: Boolean get() = status == "cancelled"
+
+    /** The only rows offering a way out. A paid charge is refunded rather than
+     *  cancelled, and a cancelled one has nowhere left to go. */
+    val canCancel: Boolean get() = !isPaid && !isCancelled
 
     /** Paid, but not the amount that was asked for — the daemon records both. */
     val paidWrongAmount: Boolean
@@ -60,4 +68,25 @@ data class ChargeResponse(
     val description: String = "",
     val sent: Boolean = false,
     @SerialName("sendError") val sendError: String = "",
+)
+
+/**
+ * The answer to withdrawing one charge.
+ *
+ * `notified` is deliberately its own fact rather than folded into `ok`:
+ * cancelling always stops the charge counting as owed, but the Grow page stays
+ * payable, so whether the payer was actually TOLD is the part that decides
+ * whether he might still pay. A cancel that could not reach him is a success
+ * with a message the owner now has to deliver by hand.
+ */
+@Serializable
+data class CancelResponse(
+    val ok: Boolean = false,
+    val error: String = "",
+    val id: String = "",
+    val notified: Boolean = false,
+    @SerialName("notifySkipped") val notifySkipped: String = "",
+    @SerialName("alreadyCancelled") val alreadyCancelled: Boolean = false,
+    @SerialName("sendError") val sendError: String = "",
+    val message: String = "",
 )

@@ -1,6 +1,7 @@
 package com.automatelinux.charge
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,9 +19,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automatelinux.charge.data.Charge
@@ -123,6 +127,14 @@ fun App(baseUrl: String, token: String) {
     var listError by remember { mutableStateOf("") }
     var charges by remember { mutableStateOf<List<Charge>>(emptyList()) }
     var outstanding by remember { mutableStateOf(0.0) }
+    // Cancelling is behind a confirmation because it is not undoable from here:
+    // there is no "un-cancel", and the payer may already have been told the
+    // request is off. The charge being cancelled is held rather than a boolean,
+    // so the dialog can name the person and the sum instead of asking "are you
+    // sure?" about nothing in particular.
+    var cancelTarget by remember { mutableStateOf<Charge?>(null) }
+    var notifyPayer by remember { mutableStateOf(true) }
+    var cancelling by remember { mutableStateOf(false) }
 
     suspend fun refresh() {
         loadingList = true
@@ -280,7 +292,7 @@ fun App(baseUrl: String, token: String) {
                                                 r.payUrl.isNotEmpty() -> Banner(
                                                     "הקישור נוצר אבל לא נשלח: ${r.sendError.ifEmpty { "שגיאת שליחה" }}",
                                                     ok = false,
-                                                    link = r.payUrl,
+                                                    extra = r.payUrl,
                                                 )
                                                 else -> Banner(r.error.ifEmpty { "לא הצלחנו ליצור בקשת תשלום" }, ok = false)
                                             }
@@ -321,7 +333,12 @@ fun App(baseUrl: String, token: String) {
                                 modifier = Modifier.padding(top = 8.dp),
                             )
                         }
-                        items(charges, key = { it.id }) { ChargeRow(it) }
+                        items(charges, key = { it.id }) { c ->
+                            ChargeRow(c, onCancel = {
+                                notifyPayer = c.sent
+                                cancelTarget = c
+                            })
+                        }
                     } else if (!loadingList) {
                         item {
                             Text(
@@ -335,12 +352,64 @@ fun App(baseUrl: String, token: String) {
                     }
                 }
             }
+
+            cancelTarget?.let { target ->
+                CancelDialog(
+                    charge = target,
+                    notify = notifyPayer,
+                    onNotifyChange = { notifyPayer = it },
+                    busy = cancelling,
+                    onDismiss = { if (!cancelling) cancelTarget = null },
+                    onConfirm = {
+                        scope.launch {
+                            cancelling = true
+                            banner = null
+                            val r = api.cancel(target.id, notifyPayer)
+                            val who = target.payerName.ifEmpty { target.payerPhone }
+                            banner = when {
+                                r.ok && r.notified ->
+                                    Banner("הבקשה בוטלה ו$who עודכן בוואטסאפ", ok = true)
+                                // Cancelled, and nobody needed telling: either
+                                // the link never went out, or he said he would
+                                // tell him himself.
+                                r.ok ->
+                                    Banner("הבקשה בוטלה — ${whyNobodyWasTold(target, notifyPayer)}", ok = true)
+                                // The withdrawal stands; only the message
+                                // failed. That is the half $who can see, so it
+                                // is handed over to send by hand rather than
+                                // reported as a failed cancellation.
+                                r.sendError.isNotEmpty() -> Banner(
+                                    "הבקשה בוטלה, אבל ההודעה ל$who לא נשלחה — הוא עדיין מחזיק קישור פעיל",
+                                    ok = false,
+                                    extra = r.message,
+                                )
+                                else -> Banner(r.error.ifEmpty { "לא הצלחנו לבטל את הבקשה" }, ok = false)
+                            }
+                            cancelling = false
+                            cancelTarget = null
+                            refresh()
+                        }
+                    },
+                )
+            }
         }
     }
     }
 }
 
-private data class Banner(val text: String, val ok: Boolean, val link: String = "")
+/** Why no WhatsApp went out — said plainly, because "cancelled" on its own
+ *  leaves open whether the payer knows, and that is the difference between a
+ *  live payment link and a dead one. */
+private fun whyNobodyWasTold(c: Charge, notify: Boolean): String =
+    if (!c.sent) "הקישור מעולם לא נשלח אליו"
+    else if (!notify) "לא נשלחה הודעה, והקישור שבידיו עדיין עובד"
+    else "לא נשלחה הודעה"
+
+/** @param extra text worth copying out of the banner by hand — a payment link
+ *  that was created but not delivered, or a cancellation the payer was not
+ *  told about. Rendered selectable rather than tappable, because copying it
+ *  into a chat IS the recovery in both cases. */
+private data class Banner(val text: String, val ok: Boolean, val extra: String = "")
 
 @Composable
 private fun BannerCard(b: Banner, onDismiss: (() -> Unit)?) {
@@ -353,11 +422,11 @@ private fun BannerCard(b: Banner, onDismiss: (() -> Unit)?) {
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(b.text, color = fg, style = MaterialTheme.typography.bodyMedium)
-            if (b.link.isNotEmpty()) {
+            if (b.extra.isNotEmpty()) {
                 // Selectable rather than tappable: the recovery is to copy this
                 // into a chat by hand, which is what a long-press already does.
                 Text(
-                    b.link,
+                    b.extra,
                     color = fg,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
@@ -406,9 +475,14 @@ private fun Field(
 }
 
 @Composable
-private fun ChargeRow(c: Charge) {
+private fun ChargeRow(c: Charge, onCancel: () -> Unit) {
     Card(
-        Modifier.fillMaxWidth(),
+        // The whole row opens the way out, and it also carries a worded button:
+        // an invisible tap target is not an affordance, and "בטל" is unambiguous
+        // in a way a glyph on a money row is not. Low emphasis on purpose —
+        // withdrawing a request is rare next to raising one, and it must never
+        // compete with the button above it.
+        Modifier.fillMaxWidth().let { if (c.canCancel) it.clickable(onClick = onCancel) else it },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
@@ -420,6 +494,7 @@ private fun ChargeRow(c: Charge) {
             val dot = when {
                 c.paidWrongAmount -> Color(0xFFB8860B)
                 c.isPaid -> Color(0xFF1E9E54)
+                c.isCancelled -> Color(0xFF9AA0A6)
                 else -> Color(0xFFD39E00)
             }
             Box(Modifier.size(10.dp).background(dot, RoundedCornerShape(5.dp)))
@@ -438,6 +513,7 @@ private fun ChargeRow(c: Charge) {
                     when {
                         c.paidWrongAmount -> "שולם ${money(c.paidAmountIls)} $CURRENCY — לא הסכום שנדרש"
                         c.isPaid -> "שולם"
+                        c.isCancelled -> "בוטלה"
                         c.sent -> "נשלח, ממתין לתשלום"
                         else -> "הקישור לא נשלח"
                     },
@@ -445,11 +521,116 @@ private fun ChargeRow(c: Charge) {
                     color = dot,
                 )
             }
-            Text(
-                "${money(c.amountIls)} $CURRENCY",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "${money(c.amountIls)} $CURRENCY",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    // Struck through rather than dimmed: a cancelled charge is
+                    // not a quieter debt, it is not a debt, and the total above
+                    // has already stopped counting it.
+                    textDecoration = if (c.isCancelled) TextDecoration.LineThrough else null,
+                    color = if (c.isCancelled) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurface,
+                )
+                if (c.canCancel) {
+                    TextButton(
+                        onClick = onCancel,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    ) {
+                        Text(
+                            "בטל",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
     }
+}
+
+/**
+ * "Are you sure" is the wrong question, so this does not ask it.
+ *
+ * It names the person, the sum and what it was for, and then says the one thing
+ * that is not obvious: cancelling does NOT switch off the payment page. The
+ * payer keeps a link that still charges his card, and the WhatsApp message is
+ * the only part of this he can see — so the checkbox is on by default, and
+ * turning it off says so in plain words rather than leaving it as an unlabelled
+ * preference.
+ */
+@Composable
+private fun CancelDialog(
+    charge: Charge,
+    notify: Boolean,
+    onNotifyChange: (Boolean) -> Unit,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val who = charge.payerName.ifEmpty { charge.payerPhone }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("לבטל את הבקשה?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "$who — ${money(charge.amountIls)} $CURRENCY",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (charge.description.isNotEmpty()) {
+                    Text(
+                        charge.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (charge.sent) {
+                    Text(
+                        "הקישור כבר נשלח אליו והוא ימשיך לעבוד. ההודעה היא מה שמבטל אותו בפועל.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().clickable(enabled = !busy) { onNotifyChange(!notify) },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Checkbox(checked = notify, onCheckedChange = { onNotifyChange(it) }, enabled = !busy)
+                        Text(
+                            "שלח לו הודעה שהבקשה בוטלה",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                } else {
+                    // Nobody holds the link, so there is nobody to un-tell —
+                    // and no checkbox, because an option that cannot change the
+                    // outcome is just something else to read.
+                    Text(
+                        "הקישור מעולם לא נשלח אליו — אין למי להודיע.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !busy) {
+                if (busy) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("מבטל…")
+                } else {
+                    Text("בטל את הבקשה", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        dismissButton = {
+            // "השאר" and not "ביטול": in Hebrew the safe way out of a
+            // cancellation dialog cannot be the word "cancel".
+            TextButton(onClick = onDismiss, enabled = !busy) { Text("השאר") }
+        },
+    )
 }

@@ -118,6 +118,15 @@
     unicode-bidi: isolate;
   }
 
+  /* The same isolation for a headline-sized sum, in the text face: its digits
+     are proportional, so the thousands comma does not open a gap. */
+  .figure-display {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+
   .skeleton {
     background: var(--surface-3);
     animation: skeleton-pulse 1.4s ease-in-out infinite;

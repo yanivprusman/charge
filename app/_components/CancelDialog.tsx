@@ -33,9 +33,13 @@ export function CancelDialog({
   onConfirm: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const keepRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const dialog = ref.current;
     dialog?.showModal();
+    // A modal puts focus on its first control — here the checkbox. The safe
+    // answer is where Enter should land, so focus is moved to it by hand.
+    keepRef.current?.focus();
     return () => dialog?.close();
   }, []);
 
@@ -104,8 +108,8 @@ export function CancelDialog({
             dialog cannot be the word "cancel". */}
         <button
           type="button"
+          ref={keepRef}
           data-id="cancel-dialog-keep"
-          autoFocus
           disabled={busy}
           onClick={onDismiss}
           className="h-11 cursor-pointer rounded-field border border-line-strong bg-surface px-4 font-medium transition-[background-color,transform] duration-150 hover:bg-surface-3 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"

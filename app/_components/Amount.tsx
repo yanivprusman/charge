@@ -16,15 +16,20 @@ export function money(v: number): string {
 export function Amount({
   value,
   className,
+  figureClassName = "figure",
   signClassName,
 }: {
   value: number;
   className?: string;
+  /** The face the digits are set in. The mono `figure` face by default; a
+   *  headline-sized sum passes its own, because a monospace comma at 60px is a
+   *  hole in the middle of the number. */
+  figureClassName?: string;
   signClassName?: string;
 }) {
   return (
-    <span className={`whitespace-nowrap ${className ?? ""}`}>
-      <span className="figure">{money(value)}</span>
+    <span className={`inline-block whitespace-nowrap ${className ?? ""}`}>
+      <span className={figureClassName}>{money(value)}</span>
       <span className={signClassName}>{" "}₪</span>
     </span>
   );

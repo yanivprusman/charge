@@ -35,7 +35,7 @@ const STALE_AFTER_MS = 15_000;
 const REFRESH_MIN_MS = 500;
 
 const headerButton =
-  "flex h-10 cursor-pointer items-center gap-1.5 rounded-field px-2.5 text-[13px] font-medium text-ink-2 transition-[background-color,color,transform] duration-150 hover:bg-surface-3 hover:text-ink active:scale-95 disabled:cursor-not-allowed disabled:opacity-50";
+  "flex h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-field px-2.5 text-[13px] font-medium text-ink-2 transition-[background-color,color,transform] duration-150 hover:bg-surface-3 hover:text-ink active:scale-95 disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Why no WhatsApp went out — said plainly, because "cancelled" on its own
  *  leaves open whether the payer knows, and that is the difference between a
@@ -198,7 +198,7 @@ export default function ChargeScreen() {
             }}
             className={headerButton}
           >
-            <SignOutIcon />
+            <SignOutIcon className="rtl:-scale-x-100" />
             יציאה
           </button>
         </div>
@@ -322,7 +322,8 @@ function Summary({
       <p data-id="outstanding-total" className="leading-[1.15]">
         <Amount
           value={outstanding}
-          className="text-[clamp(2.75rem,9vw,3.75rem)] font-medium"
+          className="text-[clamp(2.75rem,9vw,3.75rem)] font-semibold"
+          figureClassName="figure-display"
           signClassName="text-[0.5em] font-medium text-ink-3"
         />
       </p>

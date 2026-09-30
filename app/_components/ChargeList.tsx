@@ -53,27 +53,34 @@ function ChargeRow({ charge, onCancel }: { charge: Charge; onCancel: () => void 
           <StatusLabel charge={charge} />
         </p>
       </div>
-      {/* Struck through rather than dimmed: a cancelled charge is not a quieter
-          debt, it is not a debt, and the total above has stopped counting it. */}
-      <Amount
-        value={charge.amountIls}
-        className={`text-base font-semibold ${cancelled ? "text-ink-3 line-through" : ""}`}
-        signClassName="font-medium text-ink-3"
-      />
-      {/* The slot is there on every row, so the sums stay in one column whether
-          or not a row can still be cancelled. Low emphasis on purpose —
-          withdrawing a request is rare next to raising one. */}
-      <div className="flex w-14 shrink-0 justify-end">
-        {canCancel(charge) ? (
-          <button
-            type="button"
-            data-id="cancel-charge"
-            onClick={onCancel}
-            className="h-11 cursor-pointer rounded-field px-3 text-[13px] font-medium text-ink-2 transition-[background-color,color,transform] duration-150 hover:bg-surface-2 hover:text-ink active:scale-95"
-          >
-            בטל
-          </button>
-        ) : null}
+      {/* On a phone the sum sits over its button, as in the native app, and the
+          name keeps the width. From a tablet up each gets a slot of its own:
+          the sums hang from one edge so their units line up down the column,
+          and the button's slot is there on every row whether or not that row
+          can still be cancelled. */}
+      <div className="flex shrink-0 flex-col items-end sm:flex-row sm:items-center sm:gap-3">
+        {/* Struck through rather than dimmed: a cancelled charge is not a
+            quieter debt, it is not a debt, and the total above has stopped
+            counting it. */}
+        <Amount
+          value={charge.amountIls}
+          className={`text-base font-semibold sm:min-w-28 ${cancelled ? "text-ink-3 line-through" : ""}`}
+          signClassName="font-medium text-ink-3"
+        />
+        {/* Low emphasis on purpose — withdrawing a request is rare next to
+            raising one. */}
+        <div className="flex justify-end sm:w-14">
+          {canCancel(charge) ? (
+            <button
+              type="button"
+              data-id="cancel-charge"
+              onClick={onCancel}
+              className="-me-3 h-11 cursor-pointer rounded-field px-3 text-[13px] font-medium text-ink-2 transition-[background-color,color,transform] duration-150 hover:bg-surface-2 hover:text-ink active:scale-95 sm:me-0"
+            >
+              בטל
+            </button>
+          ) : null}
+        </div>
       </div>
     </li>
   );
@@ -110,8 +117,7 @@ export function ChargeListSkeleton() {
             <div className="skeleton h-3 w-44 rounded-field" />
             <div className="skeleton h-3 w-24 rounded-field" />
           </div>
-          <div className="skeleton h-4 w-16 rounded-field" />
-          <div className="w-14" />
+          <div className="skeleton h-4 w-16 rounded-field sm:me-26" />
         </li>
       ))}
     </ul>

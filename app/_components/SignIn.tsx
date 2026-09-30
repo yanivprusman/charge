@@ -81,7 +81,7 @@ export default function SignIn({ linkExpired }: { linkExpired: boolean }) {
         ) : (
           <p id="access-code-hint" className="mt-1 text-xs leading-5 text-ink-3">
             הערך של <bdi className="font-mono">CHARGE_API_TOKEN</bdi> בקובץ{" "}
-            <bdi className="font-mono">.env.local</bdi> של האפליקציה.
+            <bdi className="font-mono">.env.local</bdi>
           </p>
         )}
 

@@ -28,12 +28,9 @@ a browser, and rotating the token signs every browser out.
 
 ## Rules worth knowing before editing
 
-- **`app/page.tsx` and `app/signin/**` must stay synchronous.** `proxy.ts`
-  chooses between them. A page that awaits `cookies()` leaves its script out of
-  the HTML, and the client's late fetch of it was cancelled on 7 of 8 cold loads
-  (Next 16.3.4 webpack dev, Chrome 144). The numbers are in `proxy.ts`.
 - **Every API route calls `authorize()` itself** (`lib/auth.ts`). `proxy.ts`
-  only picks a screen; it guards nothing.
+  only picks which screen `/` shows — the app or the sign-in form; it guards
+  nothing.
 - **A cookie-authenticated write must come from the app's own origin.** What is
   protected is a WhatsApp message sent in the owner's name.
 - **The form does not validate.** A real mobile number, a positive amount, a

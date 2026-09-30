@@ -10,14 +10,9 @@ import { SESSION_COOKIE, isSession } from "@/lib/auth";
  * browser that reached the app's screen some other way would still be refused
  * by every call that screen makes.
  *
- * The decision lives here rather than in the page for a measured reason
- * (2026-09-30, Next 16.3.4 webpack dev, Chrome 144). A page component that
- * awaits `cookies()` renders late, so its script is left out of the HTML and
- * fetched by the client at hydration — and that fetch was cancelled by the
- * browser on 7 of 8 cold loads, leaving "This page couldn't load". A page that
- * renders without awaiting anything ships its script in the HTML, and failed 0
- * of 8. Keeping both pages synchronous is what makes the first visit reliable;
- * this file is what lets them be.
+ * It lives here rather than in the page so the two screens are two plain
+ * pages, each rendered without reading the request — the page never has to
+ * know there is such a thing as being signed out.
  */
 export function proxy(request: NextRequest) {
   if (isSession(request.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
